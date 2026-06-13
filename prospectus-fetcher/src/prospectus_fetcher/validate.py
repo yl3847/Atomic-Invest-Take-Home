@@ -32,10 +32,15 @@ from prospectus_fetcher.models import FundIdentity, ValidationResult
 
 log = logging.getLogger(__name__)
 
-# Read at most 512 KB from the beginning of the file for scanning.
-# The EDGAR inline-XBRL header (which embeds series/class IDs) is always
-# within the first few KB; the rest of the cap covers large preamble sections.
-_SCAN_BYTES = 512 * 1024
+# How many bytes to scan from the HEAD of the file.
+# Vanguard-style iXBRL filings embed series/class IDs in the hidden <ix:header>
+# near the top. Schwab-style filings (e.g. SWPPX, 6.9 MB) place them at ~18%
+# into the document (~1.2 MB). 2 MB comfortably covers both patterns.
+_SCAN_HEAD_BYTES = 2 * 1024 * 1024
+
+# Also scan the last 256 KB as a tail safety-net for any filing that buries
+# its XBRL metadata at the very end (some older SEC filers do this).
+_SCAN_TAIL_BYTES = 256 * 1024
 
 # Simple tag stripper: replace any <...> sequence with a space.
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -53,7 +58,7 @@ def validate_document(
     signals_found: list[str] = []
 
     try:
-        raw = _read_head(path)
+        raw = _read_scan_window(path)
     except OSError as exc:
         log.warning("Validation: could not read %s: %s", path, exc)
         return ValidationResult(
@@ -114,7 +119,19 @@ def validate_document(
     return ValidationResult(passed=passed, signals_found=signals_found, note=note)
 
 
-def _read_head(path: Path) -> bytes:
-    """Read up to _SCAN_BYTES from the file."""
+def _read_scan_window(path: Path) -> bytes:
+    """Read head + tail of file as a single bytes object for scanning.
+
+    Reads up to _SCAN_HEAD_BYTES from the start, then up to _SCAN_TAIL_BYTES
+    from the end (if the file is large enough that they don't overlap).
+    Concatenating them with a separator that cannot match any signal pattern
+    avoids accidentally joining two halves into a false positive.
+    """
+    size = path.stat().st_size
     with path.open("rb") as fh:
-        return fh.read(_SCAN_BYTES)
+        head = fh.read(_SCAN_HEAD_BYTES)
+        if size > _SCAN_HEAD_BYTES + _SCAN_TAIL_BYTES:
+            fh.seek(-_SCAN_TAIL_BYTES, 2)
+            tail = fh.read(_SCAN_TAIL_BYTES)
+            return head + b"\x00" + tail
+        return head
