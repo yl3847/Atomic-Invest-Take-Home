@@ -29,7 +29,7 @@ from typing import Any
 
 from prospectus_fetcher.edgar import EdgarClient
 from prospectus_fetcher.errors import DownloadError
-from prospectus_fetcher.models import Filing, FundIdentity, Status
+from prospectus_fetcher.models import Filing, FundIdentity, Status, ValidationResult
 
 log = logging.getLogger(__name__)
 
@@ -106,8 +106,9 @@ def build_manifest_entry(
     saved_path: str,
     sha256: str,
     source_url: str,
+    validation: ValidationResult | None = None,
 ) -> dict[str, Any]:
-    return {
+    entry: dict[str, Any] = {
         "ticker": identity.ticker,
         "fund_name": identity.name,
         "cik": identity.cik,
@@ -123,6 +124,13 @@ def build_manifest_entry(
         "selection_reason": filing.selection_reason,
         "retrieved_at": datetime.now(timezone.utc).isoformat(),
     }
+    if validation is not None:
+        entry["validation"] = {
+            "passed": validation.passed,
+            "signals_found": validation.signals_found,
+            "note": validation.note,
+        }
+    return entry
 
 
 # ---------------------------------------------------------------------------

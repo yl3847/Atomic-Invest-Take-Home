@@ -27,6 +27,7 @@ from prospectus_fetcher.filings import DEFAULT_FORMS, locate_document, select_fi
 from prospectus_fetcher.models import FetchResult, FundIdentity, Status
 from prospectus_fetcher.report import render_summary
 from prospectus_fetcher.resolver import resolve
+from prospectus_fetcher.validate import validate_document
 
 app = typer.Typer(
     name="prospectus-fetch",
@@ -147,8 +148,19 @@ def _process_ticker(
             error=str(exc),
         )
 
-    # 5. Upsert manifest
-    entry = build_manifest_entry(identity, filing, saved_path, sha256, source_url)
+    # 5. Validate the downloaded document (sanity check, not a hard gate)
+    validation = validate_document(saved_path, identity)
+    if not validation.passed:
+        log.warning(
+            "Validation failed for %s: %s", ticker, validation.note
+        )
+        # Keep the file; demote status so the caller can see it
+        status = Status.VALIDATION_FAILED
+
+    # 6. Upsert manifest (includes validation block)
+    entry = build_manifest_entry(
+        identity, filing, saved_path, sha256, source_url, validation=validation
+    )
     try:
         upsert_manifest(out, entry)
     except OSError as exc:
@@ -161,6 +173,7 @@ def _process_ticker(
         filing=filing,
         saved_path=saved_path,
         sha256=sha256,
+        validation=validation,
     )
 
 
@@ -179,12 +192,16 @@ def _print_result_line(result: FetchResult) -> None:
     }
     styled = status_styles.get(result.status, result.status.value)
 
-    if result.status in (Status.OK, Status.SKIPPED_EXISTING):
+    if result.status in (Status.OK, Status.SKIPPED_EXISTING, Status.VALIDATION_FAILED):
+        val_note = ""
+        if result.validation and not result.validation.passed:
+            val_note = f"  [yellow]⚠ {result.validation.note}[/yellow]"
         console.print(
             f"{result.ticker:<12} {styled}  "
             f"{result.filing.filing_date if result.filing else ''}  "
             f"{result.filing.form if result.filing else ''}  "
             f"{result.saved_path or ''}"
+            f"{val_note}"
         )
     else:
         console.print(f"{result.ticker:<12} {styled}  {result.error or ''}")
