@@ -24,8 +24,8 @@ from prospectus_fetcher.errors import (
     TickerNotFound,
 )
 from prospectus_fetcher.filings import DEFAULT_FORMS, locate_document, select_filing
-from prospectus_fetcher.models import FetchResult, FundIdentity, Status
-from prospectus_fetcher.report import render_summary
+from prospectus_fetcher.models import FetchResult, Status
+from prospectus_fetcher.report import render_summary, results_to_json, write_summary_files
 from prospectus_fetcher.resolver import resolve
 from prospectus_fetcher.validate import validate_document
 
@@ -41,20 +41,45 @@ err_console = Console(stderr=True)
 
 @app.command()
 def fetch(
-    tickers: Annotated[list[str], typer.Argument(help="One or more fund tickers")],
-    out: Annotated[Path, typer.Option("--out", "-o", help="Output directory")] = Path("output"),
+    tickers: Annotated[
+        list[str] | None,
+        typer.Argument(help="One or more fund tickers"),
+    ] = None,
+    out: Annotated[
+        Path,
+        typer.Option("--out", "-o", help="Output directory"),
+    ] = Path("output"),
     forms: Annotated[
         str,
         typer.Option("--forms", help="Comma-separated form priority (e.g. 485BPOS,497K)"),
     ] = ",".join(DEFAULT_FORMS),
-    force: Annotated[bool, typer.Option("--force", "-f", help="Re-download if already exists")] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Re-download even if file already exists"),
+    ] = False,
     user_agent: Annotated[
         str | None,
-        typer.Option("--user-agent", help='SEC User-Agent header: "Name email@example.com"'),
+        typer.Option("--user-agent", help='SEC User-Agent: "Name email@example.com"'),
     ] = None,
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable DEBUG logging")] = False,
+    from_file: Annotated[
+        Path | None,
+        typer.Option("--from-file", help="Text file with one ticker per line"),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Enable DEBUG logging"),
+    ] = False,
+    print_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print structured JSON results to stdout"),
+    ] = False,
 ) -> None:
-    """Fetch the latest prospectus for each TICKER and save to OUT."""
+    """Fetch the latest prospectus for each TICKER and save to OUT.
+
+    Tickers may be supplied as positional arguments, via --from-file, or both.
+    Duplicates are silently de-duplicated. A failure on one ticker never aborts
+    the rest of the batch.
+    """
     _configure_logging(verbose)
 
     ua = user_agent or os.environ.get("SEC_USER_AGENT") or os.environ.get("EDGAR_UA")
@@ -66,35 +91,66 @@ def fetch(
         )
         raise typer.Exit(code=2)
 
+    raw_tickers: list[str] = list(tickers or [])
+    if from_file is not None:
+        raw_tickers.extend(_read_ticker_file(from_file))
+
+    if not raw_tickers:
+        err_console.print("[red]Error:[/red] No tickers supplied. Pass tickers as arguments or use --from-file.")
+        raise typer.Exit(code=2)
+
+    # Normalize (strip + uppercase) and de-duplicate while preserving order
+    seen: set[str] = set()
+    normalized: list[str] = []
+    for t in raw_tickers:
+        clean = t.strip().upper()
+        if clean and clean not in seen:
+            seen.add(clean)
+            normalized.append(clean)
+
     forms_priority = [f.strip() for f in forms.split(",") if f.strip()]
     client = EdgarClient(user_agent=ua)
     out.mkdir(parents=True, exist_ok=True)
 
     results: list[FetchResult] = []
-    for raw_ticker in tickers:
-        result = _process_ticker(raw_ticker, client, forms_priority, out, force)
+    for ticker in normalized:
+        result = _process_ticker(ticker, client, forms_priority, out, force)
         results.append(result)
         _print_result_line(result)
 
-    render_summary(results, console)
+    # Summary table + counts to stdout
+    if not print_json:
+        render_summary(results, console)
 
-    failed = [r for r in results if r.status not in (Status.OK, Status.SKIPPED_EXISTING)]
-    if failed:
+    # Machine-readable summaries
+    write_summary_files(results, out)
+
+    # JSON to stdout (instead of / in addition to table per --json flag)
+    if print_json:
+        print(results_to_json(results))
+
+    # CI-friendly exit: non-zero if any ticker failed (VALIDATION_FAILED counts
+    # as a warning but not a failure for exit-code purposes)
+    failures = [
+        r for r in results
+        if r.status not in (Status.OK, Status.SKIPPED_EXISTING, Status.VALIDATION_FAILED)
+    ]
+    if failures:
         raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------
-# Per-ticker orchestration
+# Per-ticker orchestration — each step catches its own error class so a
+# failure on one ticker never propagates to the next.
 # ---------------------------------------------------------------------------
 
 def _process_ticker(
-    raw_ticker: str,
+    ticker: str,
     client: EdgarClient,
     forms_priority: list[str],
     out: Path,
     force: bool,
 ) -> FetchResult:
-    ticker = raw_ticker.strip().upper()
     log = logging.getLogger(__name__)
 
     # 1. Resolve ticker → FundIdentity
@@ -102,11 +158,7 @@ def _process_ticker(
         identity = resolve(ticker, client)
     except TickerNotFound as exc:
         log.warning("Ticker not found: %s", exc)
-        return FetchResult(
-            ticker=ticker,
-            status=Status.TICKER_NOT_FOUND,
-            error=str(exc),
-        )
+        return FetchResult(ticker=ticker, status=Status.TICKER_NOT_FOUND, error=str(exc))
     except ProspectusFetcherError as exc:
         return FetchResult(ticker=ticker, status=Status.TICKER_NOT_FOUND, error=str(exc))
 
@@ -122,7 +174,7 @@ def _process_ticker(
             error=str(exc),
         )
 
-    # 3. Locate the document URL
+    # 3. Locate document URL
     try:
         source_url = locate_document(filing, identity, client)
     except (DownloadError, ProspectusFetcherError) as exc:
@@ -148,16 +200,13 @@ def _process_ticker(
             error=str(exc),
         )
 
-    # 5. Validate the downloaded document (sanity check, not a hard gate)
+    # 5. Validate (sanity check — never aborts; demotes status on failure)
     validation = validate_document(saved_path, identity)
     if not validation.passed:
-        log.warning(
-            "Validation failed for %s: %s", ticker, validation.note
-        )
-        # Keep the file; demote status so the caller can see it
+        log.warning("Validation failed for %s: %s", ticker, validation.note)
         status = Status.VALIDATION_FAILED
 
-    # 6. Upsert manifest (includes validation block)
+    # 6. Upsert per-ticker manifest entry
     entry = build_manifest_entry(
         identity, filing, saved_path, sha256, source_url, validation=validation
     )
@@ -178,8 +227,18 @@ def _process_ticker(
 
 
 # ---------------------------------------------------------------------------
-# Output helpers
+# Helpers
 # ---------------------------------------------------------------------------
+
+def _read_ticker_file(path: Path) -> list[str]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        err_console.print(f"[red]Cannot read --from-file {path}: {exc}[/red]")
+        raise typer.Exit(code=2) from exc
+    # Skip blank lines and comments (#)
+    return [l.strip() for l in lines if l.strip() and not l.strip().startswith("#")]
+
 
 def _print_result_line(result: FetchResult) -> None:
     status_styles = {
