@@ -18,12 +18,13 @@ each successful save and written atomically (temp-file + os.replace()).
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import logging
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -122,7 +123,7 @@ def build_manifest_entry(
         "saved_path": saved_path,
         "sha256": sha256,
         "selection_reason": filing.selection_reason,
-        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+        "retrieved_at": datetime.now(UTC).isoformat(),
     }
     if validation is not None:
         entry["validation"] = {
@@ -150,10 +151,8 @@ def _atomic_write(dest: Path, data: bytes) -> None:
             fh.write(data)
         os.replace(tmp_path, dest)
     except Exception:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
         raise
 
 
@@ -165,10 +164,8 @@ def _atomic_write_text(dest: Path, text: str) -> None:
             fh.write(text)
         os.replace(tmp_path, dest)
     except Exception:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
         raise
 
 

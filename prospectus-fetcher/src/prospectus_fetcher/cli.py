@@ -17,7 +17,7 @@ from prospectus_fetcher.download import (
     save_document,
     upsert_manifest,
 )
-from prospectus_fetcher.edgar import EdgarClient, archive_doc_url
+from prospectus_fetcher.edgar import EdgarClient
 from prospectus_fetcher.errors import (
     DownloadError,
     NoProspectusFound,
@@ -340,7 +340,7 @@ def _read_ticker_file(path: Path) -> list[str]:
     except OSError as exc:
         err_console.print(f"[red]Cannot read --from-file {path}: {exc}[/red]")
         raise typer.Exit(code=2) from exc
-    return [l.strip() for l in lines if l.strip() and not l.strip().startswith("#")]
+    return [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
 
 
 def _print_result_line(result: FetchResult) -> None:

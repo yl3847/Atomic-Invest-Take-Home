@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     OK = "OK"
     TICKER_NOT_FOUND = "TICKER_NOT_FOUND"
     NO_PROSPECTUS_FOUND = "NO_PROSPECTUS_FOUND"

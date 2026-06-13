@@ -126,6 +126,20 @@ def _candidates_from_atom(
     return candidates
 
 
+def _atom_text(content: ET.Element, tag: str) -> str:
+    """Extract text from a namespaced or bare child element of an Atom <content>.
+
+    Content children carry the Atom namespace in the live EDGAR feed
+    (RECON.md §3 noted "no namespace" but live inspection shows they inherit
+    {http://www.w3.org/2005/Atom}). Use `is not None` because an Element with
+    no children evaluates as falsy in xml.etree.
+    """
+    el = content.find(f"{{{_ATOM_NS}}}{tag}")
+    if el is None:
+        el = content.find(tag)
+    return el.text.strip() if el is not None and el.text else ""
+
+
 def _parse_atom(xml_text: str) -> list[dict[str, Any]]:
     """Parse a browse-edgar Atom feed into a list of candidate dicts.
 
@@ -154,20 +168,9 @@ def _parse_atom(xml_text: str) -> list[dict[str, Any]]:
         if content is None:
             continue
 
-        def _text(tag: str) -> str:
-            # Content children carry the Atom namespace in the live feed
-            # (RECON.md §3 noted "no namespace" but live inspection shows
-            # they inherit {http://www.w3.org/2005/Atom}). Try namespaced
-            # first, fall back to unqualified. Use `is not None` because an
-            # Element with no children is falsy in Python's xml.etree.
-            el = content.find(f"{{{_ATOM_NS}}}{tag}")
-            if el is None:
-                el = content.find(tag)
-            return el.text.strip() if el is not None and el.text else ""
-
-        accession = _text("accession-number")
-        form = _text("filing-type")
-        filing_date_str = _text("filing-date")
+        accession = _atom_text(content, "accession-number")
+        form = _atom_text(content, "filing-type")
+        filing_date_str = _atom_text(content, "filing-date")
 
         if not accession or accession in seen:
             continue

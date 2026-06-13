@@ -18,8 +18,8 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Any
-from urllib.parse import quote, urlencode
+from typing import Any, cast
+from urllib.parse import urlencode
 
 import requests
 from tenacity import (
@@ -207,7 +207,7 @@ class EdgarClient:
 
     def get_json(self, url: str) -> dict[str, Any]:
         """Fetch a URL and parse the response as JSON."""
-        return self._request(url).json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], self._request(url).json())
 
     def get_text(self, url: str) -> str:
         """Fetch a URL and return the response body as text."""
@@ -319,11 +319,11 @@ class EdgarClient:
             age = time.time() - cache_file.stat().st_mtime
             if age < _CACHE_TTL_SECONDS:
                 log.info("Cache hit for %s (age %.0fs)", filename, age)
-                return json.loads(cache_file.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+                return cast(dict[str, Any], json.loads(cache_file.read_text(encoding="utf-8")))
             log.info("Cache expired for %s (age %.0fs), re-fetching", filename, age)
         else:
             log.info("Cache miss for %s, fetching", filename)
 
         data = self.get_json(url)
         cache_file.write_text(json.dumps(data), encoding="utf-8")
-        return data  # type: ignore[no-any-return]
+        return data

@@ -75,16 +75,14 @@ def validate_document(
     strong = False
 
     # --- STRONG signals (unique EDGAR identifiers) ---
-    if identity.series_id:
-        # Series IDs appear verbatim in inline XBRL contextRef attributes and
-        # in the visible text of fund-family prospectuses.
-        if identity.series_id in raw_str:
-            signals_found.append(f"series_id:{identity.series_id}")
-            strong = True
-            log.debug("Validation STRONG: series_id %s found", identity.series_id)
+    # Series IDs appear verbatim in inline XBRL contextRef attributes and
+    # in the visible text of fund-family prospectuses.
+    if identity.series_id and identity.series_id in raw_str:
+        signals_found.append(f"series_id:{identity.series_id}")
+        strong = True
+        log.debug("Validation STRONG: series_id %s found", identity.series_id)
 
-    if identity.class_id:
-        if identity.class_id in raw_str:
+    if identity.class_id and identity.class_id in raw_str:
             signals_found.append(f"class_id:{identity.class_id}")
             strong = True
             log.debug("Validation STRONG: class_id %s found", identity.class_id)

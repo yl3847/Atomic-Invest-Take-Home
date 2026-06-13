@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import json
 import logging
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -120,7 +121,7 @@ def _count_line(results: list[FetchResult]) -> str:
 
 def _write_json(results: list[FetchResult], path: Path) -> None:
     payload: dict[str, Any] = {
-        "run_at": datetime.now(timezone.utc).isoformat(),
+        "run_at": datetime.now(UTC).isoformat(),
         "total": len(results),
         "succeeded": sum(1 for r in results if r.status in (Status.OK, Status.SKIPPED_EXISTING)),
         "failed": sum(1 for r in results if r.status not in (
@@ -195,8 +196,6 @@ def _atomic_write_text(dest: Path, text: str) -> None:
             fh.write(text)
         os.replace(tmp, dest)
     except Exception:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp)
-        except OSError:
-            pass
         raise

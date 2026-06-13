@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>EDGAR Full-Text Search</title>
+  <entry>
+    <title>485BPOS</title>
+    <updated>2025-12-19T00:00:00-05:00</updated>
+    <content type="text/xml">
+      <filing-type xmlns="http://www.w3.org/2005/Atom">485BPOS</filing-type>
+      <filing-date xmlns="http://www.w3.org/2005/Atom">2025-12-19</filing-date>
+      <accession-number xmlns="http://www.w3.org/2005/Atom">0001193125-25-325143</accession-number>
+    </content>
+  </entry>
+  <entry>
+    <title>485BPOS (duplicate Act 40)</title>
+    <updated>2025-12-19T00:00:00-05:00</updated>
+    <content type="text/xml">
+      <filing-type xmlns="http://www.w3.org/2005/Atom">485BPOS</filing-type>
+      <filing-date xmlns="http://www.w3.org/2005/Atom">2025-12-19</filing-date>
+      <accession-number xmlns="http://www.w3.org/2005/Atom">0001193125-25-325143</accession-number>
+    </content>
+  </entry>
+  <entry>
+    <title>485APOS</title>
+    <updated>2025-03-15T00:00:00-05:00</updated>
+    <content type="text/xml">
+      <filing-type xmlns="http://www.w3.org/2005/Atom">485APOS</filing-type>
+      <filing-date xmlns="http://www.w3.org/2005/Atom">2025-03-15</filing-date>
+      <accession-number xmlns="http://www.w3.org/2005/Atom">0001193125-25-075000</accession-number>
+    </content>
+  </entry>
+</feed>
