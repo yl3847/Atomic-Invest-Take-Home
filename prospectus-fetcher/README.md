@@ -20,6 +20,8 @@ output/VUSXX/2025-12-19_485BPOS_000119312525325143/prospectus.htm
 1 succeeded
 ```
 
+**See [`sample_run/`](sample_run/) for committed real output** — manifest, summary, and two prospectus stubs from a Checkpoint 3 run across seven funds (Schwab, T. Rowe Price, SPY, QQQ, Vanguard, Fidelity).
+
 ---
 
 ## 2. Quickstart

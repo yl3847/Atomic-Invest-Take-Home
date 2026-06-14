@@ -1,0 +1,141 @@
+{
+  "run_at": "2026-06-14T00:41:41.020880+00:00",
+  "total": 7,
+  "succeeded": 7,
+  "failed": 0,
+  "results": [
+    {
+      "ticker": "SWPPX",
+      "status": "OK",
+      "form": "485BPOS",
+      "filing_date": "2026-02-26",
+      "accession": "0000884546-26-000041",
+      "saved_path": "sample_run/SWPPX/2026-02-26_485BPOS_000088454626000041/prospectus.htm",
+      "sha256": "e3ee1f3db2665f84325435570a827ab254ba1b14c501c2358670a611631ea44e",
+      "error": null,
+      "cik": 904333,
+      "series_id": "S000005911",
+      "class_id": "C000016166",
+      "source": "mf_map",
+      "validation": {
+        "passed": true,
+        "signals_found": ["series_id:S000005911", "class_id:C000016166", "ticker:SWPPX"],
+        "note": "covers this fund (series/class ID match)"
+      }
+    },
+    {
+      "ticker": "TRBCX",
+      "status": "OK",
+      "form": "485BPOS",
+      "filing_date": "2026-02-25",
+      "accession": "0001999371-26-004097",
+      "saved_path": "sample_run/TRBCX/2026-02-25_485BPOS_000199937126004097/prospectus.htm",
+      "sha256": "036976799f534b7ffdbdec745f4f145acec4dce1ca3155ccee5b9b64c9508e6b",
+      "error": null,
+      "cik": 902259,
+      "series_id": "S000002069",
+      "class_id": "C000005424",
+      "source": "mf_map",
+      "validation": {
+        "passed": true,
+        "signals_found": ["series_id:S000002069", "class_id:C000005424", "ticker:TRBCX"],
+        "note": "covers this fund (series/class ID match)"
+      }
+    },
+    {
+      "ticker": "SPY",
+      "status": "OK",
+      "form": "485BPOS",
+      "filing_date": "2026-01-26",
+      "accession": "0001193125-26-022316",
+      "saved_path": "sample_run/SPY/2026-01-26_485BPOS_000119312526022316/prospectus.htm",
+      "sha256": "05cf519441a6f019d4e310472a35112bce29b3cc1dbb5b2d018ca845252b528e",
+      "error": null,
+      "cik": 884394,
+      "series_id": null,
+      "class_id": null,
+      "source": "company_map",
+      "validation": {
+        "passed": true,
+        "signals_found": ["ticker:SPY"],
+        "note": "ticker mentioned (weaker signal; multi-fund document likely)"
+      }
+    },
+    {
+      "ticker": "QQQ",
+      "status": "OK",
+      "form": "485BPOS",
+      "filing_date": "2025-12-19",
+      "accession": "0001104659-25-123273",
+      "saved_path": "sample_run/QQQ/2025-12-19_485BPOS_000110465925123273/prospectus.htm",
+      "sha256": "260d7a1edc78dfad6f04366cd19bce4770d56a2c80efbdfb95061095561fd742",
+      "error": null,
+      "cik": 1067839,
+      "series_id": "S000101292",
+      "class_id": "C000271435",
+      "source": "mf_map",
+      "validation": {
+        "passed": true,
+        "signals_found": ["series_id:S000101292", "class_id:C000271435", "ticker:QQQ"],
+        "note": "covers this fund (series/class ID match)"
+      }
+    },
+    {
+      "ticker": "VOO",
+      "status": "OK",
+      "form": "485BPOS",
+      "filing_date": "2026-04-28",
+      "accession": "0000036405-26-000181",
+      "saved_path": "sample_run/VOO/2026-04-28_485BPOS_000003640526000181/prospectus.htm",
+      "sha256": "99aae578f3ae6d25c91cdfbfaf446ce821a9dd1320deaf0fac4d3fd7218609bd",
+      "error": null,
+      "cik": 36405,
+      "series_id": "S000002839",
+      "class_id": "C000092055",
+      "source": "mf_map",
+      "validation": {
+        "passed": true,
+        "signals_found": ["series_id:S000002839", "class_id:C000092055"],
+        "note": "covers this fund (series/class ID match)"
+      }
+    },
+    {
+      "ticker": "SWVXX",
+      "status": "OK",
+      "form": "485BPOS",
+      "filing_date": "2026-04-28",
+      "accession": "0000884546-26-000169",
+      "saved_path": "sample_run/SWVXX/2026-04-28_485BPOS_000088454626000169/prospectus.htm",
+      "sha256": "4012b5e00acb968d80b3057ad9a699f841c1f03248c2a721b26d565bc0e12268",
+      "error": null,
+      "cik": 857156,
+      "series_id": "S000004508",
+      "class_id": "C000012383",
+      "source": "mf_map",
+      "validation": {
+        "passed": true,
+        "signals_found": ["series_id:S000004508", "class_id:C000012383", "ticker:SWVXX"],
+        "note": "covers this fund (series/class ID match)"
+      }
+    },
+    {
+      "ticker": "FDRXX",
+      "status": "OK",
+      "form": "485BPOS",
+      "filing_date": "2026-01-26",
+      "accession": "0000278001-26-000019",
+      "saved_path": "sample_run/FDRXX/2026-01-26_485BPOS_000027800126000019/prospectus.htm",
+      "sha256": "0128b220ff04504f6f4acf37949d13d7e15ea7700387bc027a81ee5741d009b4",
+      "error": null,
+      "cik": 278001,
+      "series_id": "S000007149",
+      "class_id": "C000019553",
+      "source": "mf_map",
+      "validation": {
+        "passed": true,
+        "signals_found": ["series_id:S000007149", "class_id:C000019553", "ticker:FDRXX"],
+        "note": "covers this fund (series/class ID match)"
+      }
+    }
+  ]
+}
