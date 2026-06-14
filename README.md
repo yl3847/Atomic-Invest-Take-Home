@@ -20,7 +20,7 @@ output/VUSXX/2025-12-19_485BPOS_000119312525325143/prospectus.htm
 1 succeeded
 ```
 
-**See [`sample_run/`](sample_run/) for committed real output** — manifest, summary, and two prospectus stubs from a Checkpoint 3 run across seven funds (Schwab, T. Rowe Price, SPY, QQQ, Vanguard, Fidelity).
+**See [`sample_run/`](prospectus-fetcher/sample_run/) for committed real output** — manifest, summary, and two prospectus stubs from a Checkpoint 3 run across seven funds (Schwab, T. Rowe Price, SPY, QQQ, Vanguard, Fidelity).
 
 ---
 
@@ -239,7 +239,7 @@ docker run --rm \
 
 ### Scheduled GitHub Actions refresh
 
-The workflow at [`.github/workflows/refresh.yml`](../.github/workflows/refresh.yml) runs every Monday at 06:00 UTC and on `workflow_dispatch`. It reads `watchlist.txt` (edit to add/remove tickers), fetches all prospectuses, and uploads `output/` as a build artifact retained for 90 days.
+The workflow at [`.github/workflows/refresh.yml`](.github/workflows/refresh.yml) runs every Monday at 06:00 UTC and on `workflow_dispatch`. It reads `watchlist.txt` (edit to add/remove tickers), fetches all prospectuses, and uploads `output/` as a build artifact retained for 90 days.
 
 **Required secret:** Add `SEC_USER_AGENT` as a repository secret under Settings → Secrets and variables → Actions. Format: `"Your Name your@email.com"`. Never hardcode it.
 
