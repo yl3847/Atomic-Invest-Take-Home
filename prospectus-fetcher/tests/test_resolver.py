@@ -72,9 +72,9 @@ class TestCompanyMapHit:
 
     def test_returns_fund_identity(self) -> None:
         client = _make_client(_load_mf_rows(), _load_company_map())
-        identity = resolve("QQQ", client)
+        identity = resolve("SPY", client)
         assert isinstance(identity, FundIdentity)
-        assert identity.cik == 1067839
+        assert identity.cik == 884394
 
 
 class TestFullTextFallback:
