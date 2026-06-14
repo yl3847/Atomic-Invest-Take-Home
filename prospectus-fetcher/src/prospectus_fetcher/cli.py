@@ -78,6 +78,18 @@ def fetch(
         bool,
         typer.Option("--json", help="Print structured JSON results to stdout"),
     ] = False,
+    do_extract: Annotated[
+        bool,
+        typer.Option(
+            "--extract",
+            help=(
+                "After download, run LLM extraction to emit structured JSON "
+                "(investment_objective, expense_ratio, minimum_investment, principal_risks). "
+                "Requires ANTHROPIC_API_KEY env var and 'pip install prospectus-fetcher[extract]'. "
+                "No-op with a clear message if the key is absent; retrieval always runs."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Fetch the latest prospectus for each TICKER and save to OUT.
 
@@ -102,7 +114,8 @@ def fetch(
     results: list[FetchResult] = []
     for ticker in normalized:
         result = _process_ticker(
-            ticker, client, forms_priority, out, force, accession_cache
+            ticker, client, forms_priority, out, force, accession_cache,
+            run_extract=do_extract,
         )
         results.append(result)
         _print_result_line(result)
@@ -219,6 +232,8 @@ def _process_ticker(
     out: Path,
     force: bool,
     accession_cache: dict[str, tuple[str, str]],
+    *,
+    run_extract: bool = False,
 ) -> FetchResult:
     log = logging.getLogger(__name__)
 
@@ -279,9 +294,19 @@ def _process_ticker(
         log.warning("Validation failed for %s: %s", ticker, validation.note)
         status = Status.VALIDATION_FAILED
 
-    # 6. Manifest
+    # 6. Optional LLM enrichment — runs only when --extract is set and
+    #    ANTHROPIC_API_KEY is present; otherwise returns None silently.
+    extraction: dict[str, object] | None = None
+    if run_extract:
+        from prospectus_fetcher.extract import extract as run_extraction
+        extraction = run_extraction(saved_path, ticker)
+        if extraction is not None:
+            log.info("Extraction complete for %s", ticker)
+
+    # 7. Manifest
     entry = build_manifest_entry(
-        identity, filing, saved_path, sha256, source_url, validation=validation
+        identity, filing, saved_path, sha256, source_url,
+        validation=validation, extraction=extraction,
     )
     try:
         upsert_manifest(out, entry)

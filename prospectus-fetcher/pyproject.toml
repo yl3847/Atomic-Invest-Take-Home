@@ -16,6 +16,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+extract = [
+    "anthropic>=0.26",
+    "pydantic>=2.0",
+]
 dev = [
     "pytest>=8.0",
     "responses>=0.25",
@@ -53,3 +57,18 @@ check_untyped_defs = true
 disallow_untyped_decorators = true
 no_implicit_optional = true
 strict_optional = true
+
+[[tool.mypy.overrides]]
+# Optional dependencies not installed in the type-checking environment.
+module = ["anthropic", "anthropic.*", "pydantic", "pydantic.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# extract.py dynamically imports the above optional packages; relax strict
+# checks that can't be satisfied without them installed.
+module = "prospectus_fetcher.extract"
+warn_unused_ignores = false
+disallow_any_generics = false
+disallow_subclassing_any = false
+disallow_untyped_decorators = false
+warn_return_any = false

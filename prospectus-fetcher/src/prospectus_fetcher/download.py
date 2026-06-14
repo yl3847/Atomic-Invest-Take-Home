@@ -108,6 +108,7 @@ def build_manifest_entry(
     sha256: str,
     source_url: str,
     validation: ValidationResult | None = None,
+    extraction: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "ticker": identity.ticker,
@@ -131,6 +132,8 @@ def build_manifest_entry(
             "signals_found": validation.signals_found,
             "note": validation.note,
         }
+    if extraction is not None:
+        entry["extraction"] = extraction
     return entry
 
 
