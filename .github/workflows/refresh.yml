@@ -1,0 +1,60 @@
+name: Weekly prospectus refresh
+
+on:
+  schedule:
+    # 06:00 UTC every Monday — after SEC EDGAR weekend maintenance window.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: >
+          Space-separated tickers to fetch (leave blank to use watchlist.txt).
+          Example: VUSXX SPY QQQ
+        required: false
+        default: ""
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: prospectus-fetcher/pyproject.toml
+
+      - name: Install prospectus-fetcher
+        run: pip install ./prospectus-fetcher
+
+      - name: Fetch prospectuses
+        env:
+          # SEC_USER_AGENT is required by the SEC fair-access policy.
+          # Set it as a repository secret: Settings → Secrets → SEC_USER_AGENT
+          # Format: "Your Name your@email.com"
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          if [ -n "${{ github.event.inputs.tickers }}" ]; then
+            # workflow_dispatch with explicit tickers
+            prospectus-fetch fetch ${{ github.event.inputs.tickers }} \
+              --out output/
+          else
+            # Scheduled run: use the committed watchlist
+            prospectus-fetch fetch \
+              --from-file prospectus-fetcher/watchlist.txt \
+              --out output/
+          fi
+
+      - name: Upload output as build artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prospectus-output-${{ github.run_id }}
+          path: output/
+          # Retain artifacts for 90 days; each weekly run produces a new artifact.
+          retention-days: 90

@@ -158,6 +158,7 @@ Prints the resolved CIK, series/class IDs, resolution source, chosen form, filin
 | `--force` | off | Re-download even if the file already exists |
 | `--from-file FILE` | — | Text file with one ticker per line (`#` lines ignored) |
 | `--json` | off | Print structured JSON to stdout instead of the Rich table |
+| `--extract` | off | Run LLM enrichment after download (see §3 LLM enrichment below) |
 | `-v / --verbose` | off | Enable DEBUG logging to stderr |
 | `--user-agent TEXT` | env `SEC_USER_AGENT` | Override the SEC User-Agent header |
 
@@ -170,10 +171,11 @@ output/
 ├── summary.csv                            # same, tabular
 └── VUSXX/
     └── 2025-12-19_485BPOS_000119312525325143/
-        └── prospectus.htm
+        ├── prospectus.htm
+        └── extracted.json                 # present only when --extract was used
 ```
 
-`manifest.json` entry example:
+`manifest.json` entry example (with `--extract`):
 
 ```json
 {
@@ -193,9 +195,53 @@ output/
     "passed": true,
     "signals_found": ["series_id:S000002233", "class_id:C000005732", "ticker:VUSXX"],
     "note": "covers this fund (series/class ID match)"
+  },
+  "extraction": {
+    "investment_objective": "Seeks to provide current income consistent with the preservation of capital and liquidity.",
+    "expense_ratio": "0.0011",
+    "minimum_investment": 3000,
+    "principal_risks": ["Credit risk", "Interest rate risk", "Liquidity risk", "Market risk"],
+    "model": "claude-haiku-4-5-20251001",
+    "prompt_version": "v1",
+    "ticker": "VUSXX"
   }
 }
 ```
+
+### LLM enrichment (`--extract`)
+
+```bash
+pip install 'prospectus-fetcher[extract]'
+export ANTHROPIC_API_KEY="sk-ant-..."
+prospectus-fetch fetch VUSXX --extract --out ./output
+```
+
+After downloading and validating each prospectus, `--extract` runs the HTML through `claude-haiku` to produce `extracted.json` with four fields: `investment_objective`, `expense_ratio` (decimal string), `minimum_investment` (integer USD), and `principal_risks` (list). Output is validated with Pydantic; one automatic re-prompt is attempted on schema violations before failing cleanly. The retrieval pipeline always runs regardless of whether the API key is present — if `ANTHROPIC_API_KEY` is not set, extraction is silently skipped with a log message and everything else proceeds normally.
+
+### Running in Docker
+
+```bash
+docker build -t prospectus-fetch ./prospectus-fetcher
+
+# Single ticker
+docker run --rm \
+  -e SEC_USER_AGENT="Your Name your@email.com" \
+  -v "$(pwd)/output:/app/output" \
+  prospectus-fetch fetch VUSXX --out /app/output
+
+# With extraction
+docker run --rm \
+  -e SEC_USER_AGENT="Your Name your@email.com" \
+  -e ANTHROPIC_API_KEY="sk-ant-..." \
+  -v "$(pwd)/output:/app/output" \
+  prospectus-fetch fetch VUSXX --extract --out /app/output
+```
+
+### Scheduled GitHub Actions refresh
+
+The workflow at [`.github/workflows/refresh.yml`](../.github/workflows/refresh.yml) runs every Monday at 06:00 UTC and on `workflow_dispatch`. It reads `watchlist.txt` (edit to add/remove tickers), fetches all prospectuses, and uploads `output/` as a build artifact retained for 90 days.
+
+**Required secret:** Add `SEC_USER_AGENT` as a repository secret under Settings → Secrets and variables → Actions. Format: `"Your Name your@email.com"`. Never hardcode it.
 
 ---
 
@@ -211,7 +257,8 @@ ticker
                  └─ locate document (primaryDocument or largest .htm in index.json)
                       └─ download (atomic write, sha256)
                            └─ validate (series/class ID signals in scan window)
-                                └─ record (manifest.json, summary.json, summary.csv)
+                                └─ extract (--extract: LLM → Pydantic → extracted.json)  [optional]
+                                     └─ record (manifest.json, summary.json, summary.csv)
 ```
 
 ### The EDGAR identity model
@@ -301,7 +348,7 @@ All fixtures are static JSON/XML files under `tests/fixtures/`; no live network 
 ```bash
 cd prospectus-fetcher
 ruff check src/ tests/    # All checks passed!
-mypy src/                 # Success: no issues found in 10 source files
+mypy src/                 # Success: no issues found in 11 source files
 ```
 
 ### Live smoke tests (requires network)
@@ -318,9 +365,9 @@ Runs three live EDGAR calls for VUSXX (resolve → select → locate) and assert
 
 ## 9. Future work
 
-- **Object storage backend (e.g. S3):** Replace the local filesystem output with an S3 sink so prospectuses are accessible to downstream services without sharing a filesystem. The existing output layout (`{ticker}/{date}_{form}_{accession}/prospectus.htm`) maps cleanly to an S3 key prefix with no structural changes.
+- **Object storage backend (e.g. S3):** Replace the local filesystem output with an S3 sink so prospectuses are accessible to downstream services without sharing a filesystem. The existing output layout (`{ticker}/{date}_{form}_{accession}/prospectus.htm`) maps cleanly to an S3 key prefix with no structural changes. The GitHub Actions workflow already produces a self-contained `output/` artifact that could be pushed to S3 as a post-step.
 
-- **Scheduled refresh with change detection:** Run the fetcher nightly against a ticker watchlist, compare new accession numbers against the stored manifest, and emit an event (webhook, SNS, email) when a fund files a new prospectus. The sha256 field in the manifest enables content-level diffing to detect if the same accession was amended.
+- **Change-detection alerting:** The weekly refresh workflow currently uploads all output as an artifact. Comparing new accession numbers against the previous run's `manifest.json` would detect newly filed prospectuses and emit an event (webhook, SNS, Slack) automatically. The sha256 field enables content-level diffing for cases where the same accession is amended.
 
 - **Manifest in a database:** Move `manifest.json` to a lightweight SQL store (SQLite locally, Postgres in production) keyed on `(ticker, accession)`. This enables queries like "which funds updated their prospectus in the last 30 days?" and eliminates the read-modify-write race condition in the current JSON approach.
 
