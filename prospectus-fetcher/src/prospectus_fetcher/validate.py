@@ -1,25 +1,31 @@
 """Post-download content validation.
 
-This is a sanity assertion, not a hard gate. Series-scoped selection already
-filters to the correct fund before downloading. validate_document() runs after
-the file is saved and records what it found — the result is stored in the
-manifest and in FetchResult.validation for auditability.
+This is the correctness guarantee for the retrieval pipeline. The series-scoped
+Atom feed narrows candidates to filings EDGAR associates with this fund's series,
+but when a trust files a single combined statutory prospectus covering many series,
+the feed legitimately returns that same accession under all of them. The only
+definitive per-fund check is whether this fund's own EDGAR-assigned series_id or
+class_id appears in the downloaded document — those identifiers are unique to one
+share class and cannot appear in a wrong-fund document.
 
-Failure does NOT delete the file. The pipeline sets status=VALIDATION_FAILED
-and continues; the file is kept for manual inspection.
+Failure does NOT delete the file. The pipeline sets status=VALIDATION_FAILED and
+continues; the file is kept for manual inspection.
 
 Signal tiers
 ------------
-STRONG  — series_id (S......) or class_id (C......) found in document.
-          These are machine-assigned EDGAR identifiers that are unique to one
-          fund share class; their presence is conclusive.
-WEAK    — ticker symbol found anywhere in the document text.
-          A large multi-fund filing will mention all its tickers, so this
-          confirms the file is at least fund-family-relevant but not that it
-          is specifically about THIS share class.
+STRONG  — series_id (S......) or class_id (C......) found in document text.
+          These EDGAR identifiers are unique to one fund share class.
+          A STRONG signal is required for passed=True.
 
-passed  = at least one STRONG signal OR the ticker (WEAK) is present.
-note    distinguishes the tier so readers can judge confidence.
+WEAK    — ticker symbol found as a whole word in the tag-stripped text.
+          A combined statutory prospectus mentions all covered tickers, so a
+          ticker match alone does not confirm the document covers THIS share
+          class specifically. Records the signal for auditability but does NOT
+          set passed=True when no STRONG signal is present.
+
+passed  = at least one STRONG signal (series_id or class_id) found.
+          Ticker-only: passed=False, note flags it as a weak signal.
+          No signals: passed=False, note lists what was searched for.
 """
 
 from __future__ import annotations
@@ -83,9 +89,9 @@ def validate_document(
         log.debug("Validation STRONG: series_id %s found", identity.series_id)
 
     if identity.class_id and identity.class_id in raw_str:
-            signals_found.append(f"class_id:{identity.class_id}")
-            strong = True
-            log.debug("Validation STRONG: class_id %s found", identity.class_id)
+        signals_found.append(f"class_id:{identity.class_id}")
+        strong = True
+        log.debug("Validation STRONG: class_id %s found", identity.class_id)
 
     # --- WEAK signal (ticker) ---
     ticker_lower = identity.ticker.lower()
@@ -95,12 +101,19 @@ def validate_document(
         signals_found.append(f"ticker:{identity.ticker}")
         log.debug("Validation WEAK: ticker %s found", identity.ticker)
 
-    passed = bool(signals_found)
+    # A STRONG signal (series/class ID) is required to pass.
+    # Rationale: combined statutory prospectuses cover many tickers, so a ticker
+    # match alone does not confirm THIS fund's content is present. A wrong-fund
+    # document will never contain this fund's series/class ID.
+    passed = strong
 
     if strong:
         note = "covers this fund (series/class ID match)"
     elif signals_found:
-        note = "ticker mentioned (weaker signal; multi-fund document likely)"
+        note = (
+            "weak signal only — ticker found but no series/class ID; "
+            "combined statutory prospectus likely; manual verification recommended"
+        )
     else:
         note = (
             f"no signals found for ticker={identity.ticker} "
