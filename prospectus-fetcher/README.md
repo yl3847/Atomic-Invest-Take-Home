@@ -267,7 +267,7 @@ The SEC registers funds in three nested layers:
 
 **Registrant (trust / CIK)** — the legal entity that files with the SEC. A single CIK can cover dozens of funds. Vanguard Admiral Funds files under CIK 891190 and encompasses all its money-market and bond share classes under one umbrella registrant. Vanguard Index Funds files separately under CIK 36405 and covers VOO, VTSAX, and others.
 
-**Series (S-id)** — one fund within the registrant trust. VUSXX belongs to series `S000002233` (Vanguard Federal Money Market Fund) within CIK 891190. VMFXX belongs to a different series (`S000002852`) within the same CIK. The series is the economic unit — it has its own NAV, holdings, and prospectus sections.
+**Series (S-id)** — one fund within the registrant trust. VUSXX belongs to series `S000002233` (Vanguard Treasury Money Market Fund) within CIK 891190. VMFXX belongs to a different series (`S000002852`, Vanguard Federal Money Market Fund) within the same CIK. The series is the economic unit — it has its own NAV, holdings, and prospectus sections.
 
 **Class (C-id)** — one share class within a series. VUSXX maps to class `C000005732`. A series often has Investor, Admiral, and Institutional classes with different minimums and expense ratios; each gets a distinct ticker and C-id.
 
